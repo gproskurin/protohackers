@@ -15,7 +15,9 @@
     listen_socket
 }).
 
--define(ACCEPT_POLL_INTERVAL, 500).
+-define(ACCEPT_POLL_INTERVAL, 1000).
+-define(LISTEN_PORT, 50000).
+-define(MOD_HANDLER, ph_handler_0_tcp_echo).
 
 start_link() ->
     gen_server:start_link(?MODULE, [], []).
@@ -45,7 +47,7 @@ handle_info(Data, State) ->
 
 start_worker(S) ->
     ?LOG_NOTICE("acceptor - STARTING_WORKER: socket=~p", [S]),
-    {ok, Wpid} = ph_workers_sup:start_worker(S),
+    {ok, Wpid} = ph_workers_sup:start_worker(S, ?MOD_HANDLER),
     ok = gen_tcp:controlling_process(S, Wpid),
     Wpid ! start_recv,
     ok.

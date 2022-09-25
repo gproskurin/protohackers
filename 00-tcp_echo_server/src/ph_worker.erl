@@ -5,31 +5,36 @@
 -include_lib("kernel/include/logger.hrl").
 
 -export([
-    start_link/1,
+    start_link/2,
 
     init/1,
     handle_info/2
 ]).
 
 -record(state, {
-    socket
+    socket,
+    module
 }).
 
-start_link(Socket) ->
-    gen_server:start_link(?MODULE, Socket, []).
+start_link(Socket, Mod) ->
+    gen_server:start_link(?MODULE, {Socket, Mod}, []).
 
 
-init(Socket) ->
-    ?LOG_NOTICE("worker INIT: socket=~p", [Socket]),
-    {ok, #state{socket = Socket}}.
+init({Socket, Mod}) ->
+    State = #state{
+        socket = Socket,
+        module = Mod
+    },
+    ?LOG_NOTICE("worker INIT: state=~p", [State]),
+    {ok, State}.
 
 
 handle_info(start_recv, State) ->
     active_once(State#state.socket),
     {noreply, State};
 
-handle_info({tcp, S, Data}, #state{socket = S} = State) ->
-    ok = gen_tcp:send(S, Data),
+handle_info({tcp, S, Data}, #state{socket=S, module=Mod} = State) ->
+    Mod:handle_data(S, Data),
     active_once(S),
     {noreply, State};
 
