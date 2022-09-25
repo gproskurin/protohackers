@@ -1,0 +1,12 @@
+{application, ph,
+ [{description, "ProtoHackers"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {mod, {ph_app, []}},
+  {applications,
+   [kernel,
+    stdlib
+   ]},
+  {env,[]},
+  {modules, []}
+ ]}.
