@@ -13,7 +13,8 @@
 
 -record(state, {
     socket,
-    module
+    module,
+    buffer
 }).
 
 start_link(Socket, Mod) ->
@@ -23,7 +24,8 @@ start_link(Socket, Mod) ->
 init({Socket, Mod}) ->
     State = #state{
         socket = Socket,
-        module = Mod
+        module = Mod,
+        buffer = <<>>
     },
     ?LOG_NOTICE("worker INIT: state=~p", [State]),
     {ok, State}.
@@ -33,10 +35,10 @@ handle_info(start_recv, State) ->
     active_once(State#state.socket),
     {noreply, State};
 
-handle_info({tcp, S, Data}, #state{socket=S, module=Mod} = State) ->
-    Mod:handle_data(S, Data),
+handle_info({tcp, S, Data}, #state{socket=S, module=Mod, buffer=Buffer} = State) ->
+    NewBuffer = Mod:handle_data(S, <<Buffer/binary, Data/binary>>),
     active_once(S),
-    {noreply, State};
+    {noreply, State#state{buffer = NewBuffer}};
 
 handle_info({tcp_closed, S}, #state{socket = S} = State) ->
     ?LOG_NOTICE("worker CLOSE: state=~p", [State]),

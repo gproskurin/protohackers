@@ -17,7 +17,10 @@
 
 -define(ACCEPT_POLL_INTERVAL, 1000).
 -define(LISTEN_PORT, 50000).
--define(MOD_HANDLER, ph_handler_0_tcp_echo).
+
+%-define(MOD_HANDLER, ph_handler_0_tcp_echo).
+-define(MOD_HANDLER, ph_handler_1_prime_time).
+
 
 start_link() ->
     gen_server:start_link(?MODULE, [], []).

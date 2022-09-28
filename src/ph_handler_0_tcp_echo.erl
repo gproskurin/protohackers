@@ -3,5 +3,6 @@
 -export([handle_data/2]).
 
 handle_data(S, Data) ->
-    gen_tcp:send(S, Data).
+    ok = gen_tcp:send(S, Data),
+    <<>>.
 
