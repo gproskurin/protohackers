@@ -2,15 +2,15 @@
 
 -include_lib("kernel/include/logger.hrl").
 
--export([handle_data/2]).
+-export([handle_data/3]).
 
-handle_data(S, Data) ->
+handle_data(S, Data, HState) ->
     case split_newline(Data) of
         {Line, Rest} ->
             process(S, Line),
-            handle_data(S, Rest);
+            handle_data(S, Rest, HState);
         nomatch ->
-            Data
+            {Data, HState}
     end.
 
 

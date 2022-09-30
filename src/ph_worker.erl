@@ -14,7 +14,8 @@
 -record(state, {
     socket,
     module,
-    buffer
+    buffer = <<>>,
+    handler_state = undefined
 }).
 
 start_link(Socket, Mod) ->
@@ -24,8 +25,7 @@ start_link(Socket, Mod) ->
 init({Socket, Mod}) ->
     State = #state{
         socket = Socket,
-        module = Mod,
-        buffer = <<>>
+        module = Mod
     },
     ?LOG_NOTICE("worker INIT: state=~p", [State]),
     {ok, State}.
@@ -35,13 +35,13 @@ handle_info(start_recv, State) ->
     active_once(State#state.socket),
     {noreply, State};
 
-handle_info({tcp, S, Data}, #state{socket=S, module=Mod, buffer=Buffer} = State) ->
-    NewBuffer = Mod:handle_data(S, <<Buffer/binary, Data/binary>>),
+handle_info({tcp, S, Data}, #state{socket=S, module=Mod, buffer=Buffer, handler_state=HandlerState} = State) ->
+    {NewBuffer, NewHandlerState} = Mod:handle_data(S, <<Buffer/binary, Data/binary>>, HandlerState),
     active_once(S),
-    {noreply, State#state{buffer = NewBuffer}};
+    {noreply, State#state{buffer = NewBuffer, handler_state = NewHandlerState}};
 
 handle_info({tcp_closed, S}, #state{socket = S} = State) ->
-    ?LOG_NOTICE("worker CLOSE: state=~p", [State]),
+    ?LOG_NOTICE("worker CLOSE: state=~p", [State#state{handler_state = <<"...handler_state...">>}]),
     {stop, normal, State};
 
 handle_info(Info, State) ->

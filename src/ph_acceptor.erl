@@ -19,7 +19,8 @@
 -define(LISTEN_PORT, 50000).
 
 %-define(MOD_HANDLER, ph_handler_0_tcp_echo).
--define(MOD_HANDLER, ph_handler_1_prime_time).
+%-define(MOD_HANDLER, ph_handler_1_prime_time).
+-define(MOD_HANDLER, ph_handler_2_means_to_an_end).
 
 
 start_link() ->
