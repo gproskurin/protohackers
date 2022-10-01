@@ -32,6 +32,11 @@
         port => 50002,
         module => ph_handler_2_means_to_an_end,
         options => []
+    },
+    #{
+        port => 50003,
+        module => ph_handler_3_budget_chat,
+        options => [{readline, true}]
     }
 ]).
 
@@ -43,7 +48,7 @@ start_link() ->
 init(_) ->
     Sh = lists:map(
         fun (H) ->
-            {ok, S} = gen_tcp:listen(maps:get(port, H), [binary, {active, false}]),
+            {ok, S} = gen_tcp:listen(maps:get(port, H), [binary, {reuseaddr,true}, {active,false}]),
             {S, H}
         end,
         ?HANDLERS_INFO

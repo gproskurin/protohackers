@@ -8,6 +8,7 @@
     start_link/2,
 
     init/1,
+    handle_cast/2,
     handle_info/2
 ]).
 
@@ -31,9 +32,27 @@ init({Socket, Hinfo}) ->
     {ok, State}.
 
 
-handle_info(start_recv, State) ->
+handle_cast(Msg, #state{socket = S, handler_info = Hinfo, handler_state = Hs} = State) ->
+    Mod = maps:get(module, Hinfo),
+    NewHs = Mod:handle_cast(S, Msg, Hs),
+    {noreply, State#state{handler_state = NewHs}}.
+
+
+handle_info(start_recv, #state{socket = S, handler_info = Hinfo} = State) ->
     active_once(State#state.socket),
-    {noreply, State};
+
+    Mod = maps:get(module, Hinfo),
+    code:load_file(Mod),
+    NewState = case erlang:function_exported(Mod, handle_connect, 2) of
+        true ->
+            ?LOG_NOTICE("WORKER: start_recv -> connect", []),
+            NewHs = Mod:handle_connect(S, State#state.handler_state),
+            State#state{handler_state = NewHs};
+        false ->
+            ?LOG_NOTICE("WORKER: start_recv -> no_connect", []),
+            State
+    end,
+    {noreply, NewState};
 
 handle_info({tcp, S, Data}, #state{socket=S, handler_info=Hinfo, buffer=Buffer} = State) ->
     NewState = case proplists:get_bool(readline, maps:get(options, Hinfo)) of
