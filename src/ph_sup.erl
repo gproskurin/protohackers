@@ -12,19 +12,23 @@ start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
 init([]) ->
-    SupFlags = #{strategy => one_for_all,
-                 intensity => 0,
-                 period => 1},
-    WorkersSup = #{
-        id => ph_workers_sup,
-        type => supervisor,
-        start => {ph_workers_sup, start_link, []}
+    SupFlags = #{
+        strategy => rest_for_one
+    },
+    ChatServer = #{
+        id => ph_chat_srv,
+        start => {ph_3_chat_srv, start_link, []}
     },
     Acceptor = #{
         id => ph_acceptor,
         start => {ph_acceptor, start_link, []}
     },
-    ChildSpecs = [WorkersSup, Acceptor],
+    WorkersSup = #{
+        id => ph_workers_sup,
+        type => supervisor,
+        start => {ph_workers_sup, start_link, []}
+    },
+    ChildSpecs = [ChatServer, Acceptor, WorkersSup],
     {ok, {SupFlags, ChildSpecs}}.
 
 

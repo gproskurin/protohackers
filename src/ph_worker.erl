@@ -13,21 +13,21 @@
 
 -record(state, {
     socket,
-    module,
+    handler_info,
     buffer = <<>>,
     handler_state = undefined
 }).
 
-start_link(Socket, Mod) ->
-    gen_server:start_link(?MODULE, {Socket, Mod}, []).
+start_link(Socket, Hinfo) ->
+    gen_server:start_link(?MODULE, {Socket, Hinfo}, []).
 
 
-init({Socket, Mod}) ->
+init({Socket, Hinfo}) ->
     State = #state{
         socket = Socket,
-        module = Mod
+        handler_info = Hinfo
     },
-    ?LOG_NOTICE("worker INIT: state=~p", [State]),
+    ?LOG_NOTICE("worker INIT: state=~p handler_info=~p", [State, Hinfo]),
     {ok, State}.
 
 
@@ -35,10 +35,21 @@ handle_info(start_recv, State) ->
     active_once(State#state.socket),
     {noreply, State};
 
-handle_info({tcp, S, Data}, #state{socket=S, module=Mod, buffer=Buffer, handler_state=HandlerState} = State) ->
-    {NewBuffer, NewHandlerState} = Mod:handle_data(S, <<Buffer/binary, Data/binary>>, HandlerState),
+handle_info({tcp, S, Data}, #state{socket=S, handler_info=Hinfo, buffer=Buffer} = State) ->
+    NewState = case proplists:get_bool(readline, maps:get(options, Hinfo)) of
+        true ->
+            process_readline(S, State#state{buffer = <<Buffer/binary,Data/binary>>});
+        false ->
+            Mod = maps:get(module, Hinfo),
+            {NewBuffer, NewHandlerState} = Mod:handle_data(
+                S,
+                <<Buffer/binary, Data/binary>>,
+                State#state.handler_state
+            ),
+            State#state{buffer = NewBuffer, handler_state = NewHandlerState}
+    end,
     active_once(S),
-    {noreply, State#state{buffer = NewBuffer, handler_state = NewHandlerState}};
+    {noreply, NewState};
 
 handle_info({tcp_closed, S}, #state{socket = S} = State) ->
     ?LOG_NOTICE("worker CLOSE: state=~p", [State#state{handler_state = <<"...handler_state...">>}]),
@@ -48,6 +59,16 @@ handle_info(Info, State) ->
     ?LOG_ERROR("worker INFO: info=~p state=~p", [Info, State]),
     {noreply, State}.
 
+
+process_readline(S, #state{buffer = Buffer} = State) ->
+    case ph_utils:split_newline(Buffer) of
+        {Line, Rest} ->
+            Mod = maps:get(module, State#state.handler_info),
+            {<<>>, NewHandlerState} = Mod:handle_data(S, Line, State#state.handler_state),
+            process_readline(S, State#state{buffer = Rest, handler_state = NewHandlerState});
+        nomatch ->
+            State
+    end.
 
 active_once(Socket) ->
     ok = inet:setopts(Socket, [{active, once}]).

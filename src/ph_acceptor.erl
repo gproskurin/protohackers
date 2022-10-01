@@ -12,15 +12,28 @@
 ]).
 
 -record(state, {
-    listen_socket
+    socket_info = []
 }).
 
--define(ACCEPT_POLL_INTERVAL, 1000).
--define(LISTEN_PORT, 50000).
+-define(ACCEPT_POLL_INTERVAL, 300).
 
-%-define(MOD_HANDLER, ph_handler_0_tcp_echo).
-%-define(MOD_HANDLER, ph_handler_1_prime_time).
--define(MOD_HANDLER, ph_handler_2_means_to_an_end).
+-define(HANDLERS_INFO, [
+    #{
+        port => 50000,
+        module => ph_handler_0_tcp_echo,
+        options => []
+    },
+    #{
+        port => 50001,
+        module => ph_handler_1_prime_time,
+        options => [{readline, true}]
+    },
+    #{
+        port => 50002,
+        module => ph_handler_2_means_to_an_end,
+        options => []
+    }
+]).
 
 
 start_link() ->
@@ -28,19 +41,29 @@ start_link() ->
 
 
 init(_) ->
-    ?LOG_NOTICE("STARTING..."),
-    {ok, Sl} = gen_tcp:listen(50000, [binary, {active, false}]),
+    Sh = lists:map(
+        fun (H) ->
+            {ok, S} = gen_tcp:listen(maps:get(port, H), [binary, {active, false}]),
+            {S, H}
+        end,
+        ?HANDLERS_INFO
+    ),
     self() ! accept,
-    {ok, #state{listen_socket = Sl}}.
+    {ok, #state{socket_info = Sh}}.
 
 
-handle_info(accept, #state{listen_socket = Sl} = State) ->
-    case gen_tcp:accept(Sl, ?ACCEPT_POLL_INTERVAL) of
-        {ok, S} ->
-            ok = start_worker(S);
-        {error, timeout} ->
-            ok
-    end,
+handle_info(accept, State) ->
+    lists:foreach(
+        fun ({S, Hinfo}) ->
+            case gen_tcp:accept(S, ?ACCEPT_POLL_INTERVAL) of
+                {ok, Sa} ->
+                    ok = start_worker(Sa, Hinfo);
+                {error, timeout} ->
+                    ok
+            end
+        end,
+        State#state.socket_info
+    ),
     self() ! accept,
     {noreply, State};
 
@@ -49,9 +72,9 @@ handle_info(Data, State) ->
     {noreply, State}.
 
 
-start_worker(S) ->
-    ?LOG_NOTICE("acceptor - STARTING_WORKER: socket=~p", [S]),
-    {ok, Wpid} = ph_workers_sup:start_worker(S, ?MOD_HANDLER),
+start_worker(S, Hinfo) ->
+    ?LOG_NOTICE("acceptor - STARTING_WORKER: socket=~p handler_info=~p", [S, Hinfo]),
+    {ok, Wpid} = ph_workers_sup:start_worker(S, Hinfo),
     ok = gen_tcp:controlling_process(S, Wpid),
     Wpid ! start_recv,
     ok.

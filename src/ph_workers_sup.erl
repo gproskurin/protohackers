@@ -16,10 +16,10 @@ start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, undefined).
 
 
-start_worker(Socket, Mod) ->
+start_worker(Socket, Hinfo) ->
     ChildSpec = #{
         id => Socket,
-        start => {ph_worker, start_link, [Socket, Mod]},
+        start => {ph_worker, start_link, [Socket, Hinfo]},
         restart => temporary
     },
     supervisor:start_child(?SERVER, ChildSpec).

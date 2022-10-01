@@ -4,14 +4,10 @@
 
 -export([handle_data/3]).
 
-handle_data(S, Data, HState) ->
-    case ph_utils:split_newline(Data) of
-        {Line, Rest} ->
-            process(S, Line),
-            handle_data(S, Rest, HState);
-        nomatch ->
-            {Data, HState}
-    end.
+
+handle_data(S, Line, HState) ->
+    process(S, Line),
+    {<<>>, HState}.
 
 
 process(S, Line) ->
