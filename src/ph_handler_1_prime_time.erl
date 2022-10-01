@@ -5,7 +5,7 @@
 -export([handle_data/3]).
 
 handle_data(S, Data, HState) ->
-    case split_newline(Data) of
+    case ph_utils:split_newline(Data) of
         {Line, Rest} ->
             process(S, Line),
             handle_data(S, Rest, HState);
@@ -68,34 +68,9 @@ div_by(N, D) ->
     (N rem D) =:= 0.
 
 
-split_newline(Str) ->
-    split_by(Str, <<"\n">>).
-
-split_by(Str, Pattern) ->
-    case string:find(Str, Pattern) of
-        nomatch ->
-            nomatch;
-        End ->
-            LineLen = string:length(Str) - string:length(End),
-            Line = string:slice(Str, 0, LineLen),
-            Rest = string:slice(End, string:length(Pattern)),
-            {Line, Rest}
-    end.
-
-
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
-split_newline_test() ->
-    ?assertEqual(nomatch, split_by(<<"qwerty">>, <<"Q">>)),
-    ?assertEqual(
-        {<<"qwer">>, <<"asdf">>},
-        split_by(<<"qwerZXasdf">>, <<"ZX">>)
-    ),
-    ?assertEqual(
-        {<<"qwer">>, <<"asdf\n">>},
-        split_newline(<<"qwer\nasdf\n">>)
-    ).
 
 is_prime_test() ->
     ?assert(is_prime(7.0)),
@@ -110,10 +85,15 @@ is_prime_test() ->
     ?assertNot(is_prime(4)),
     ?assert(is_prime(5)),
     ?assertNot(is_prime(6)),
+    ?assert(is_prime(7)),
+    ?assertNot(is_prime(49)),
     ?assertNot(is_prime(10000)),
     ?assert(is_prime(27644437)),
     ?assertNot(is_prime(26970586767893351002133248949616879383518092079315091251644540)),
-    ?assert(is_prime(1000000000039)).
+    ?assert(is_prime(1000000000039)),
+    ?assertNot(is_prime(27644437 * 1000000000039)),
+    ?assertNot(is_prime(27644437 * 27644437)).
+
 
 -endif.
 
