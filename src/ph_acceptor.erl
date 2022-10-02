@@ -48,6 +48,8 @@ start_link() ->
 init(_) ->
     Sh = lists:map(
         fun (H) ->
+            Mod = maps:get(module, H),
+            code:load_file(Mod),
             {ok, S} = gen_tcp:listen(maps:get(port, H), [binary, {reuseaddr,true}, {active,false}]),
             {S, H}
         end,

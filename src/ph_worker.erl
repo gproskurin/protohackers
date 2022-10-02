@@ -34,15 +34,18 @@ init({Socket, Hinfo}) ->
 
 handle_cast(Msg, #state{socket = S, handler_info = Hinfo, handler_state = Hs} = State) ->
     Mod = maps:get(module, Hinfo),
-    NewHs = Mod:handle_cast(S, Msg, Hs),
-    {noreply, State#state{handler_state = NewHs}}.
+    case Mod:handle_cast(S, Msg, Hs) of
+        stop ->
+            {stop, normal, State};
+        NewHs ->
+            {noreply, State#state{handler_state = NewHs}}
+    end.
 
 
 handle_info(start_recv, #state{socket = S, handler_info = Hinfo} = State) ->
     active_once(State#state.socket),
 
     Mod = maps:get(module, Hinfo),
-    code:load_file(Mod),
     NewState = case erlang:function_exported(Mod, handle_connect, 2) of
         true ->
             ?LOG_NOTICE("WORKER: start_recv -> connect", []),

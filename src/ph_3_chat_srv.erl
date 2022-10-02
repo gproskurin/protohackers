@@ -50,6 +50,7 @@ msg(Msg) ->
 
 
 init(_) ->
+    username_valid(<<>>), % compile regex for faster execution later
     {ok, #state{}}.
 
 
@@ -59,11 +60,18 @@ handle_call({connect, Pid}, _From, State) ->
     {reply, ok, State};
 
 handle_call({new_user, UserName, Pid}, _From, State) ->
-    case uinfo_new_user(UserName, Pid, State) of
-        {ok, NewState} ->
-            {reply, ok, NewState};
-        {error, uinfo_conflict} ->
-            {reply, {error, conflict}, State}
+    case username_valid(UserName) of
+        false ->
+            ?LOG_ERROR("CHAT_SRV: invalid username: pid=~p", [Pid]),
+            ph_handler_3_budget_chat:disconnect(Pid),
+            {reply, ok, State};
+        true ->
+            case uinfo_new_user(UserName, Pid, State) of
+                {ok, NewState} ->
+                    {reply, ok, NewState};
+                {error, uinfo_conflict} ->
+                    {reply, {error, conflict}, State}
+            end
     end;
 
 handle_call({msg, Msg, FromPid}, _From, State) ->
@@ -72,17 +80,7 @@ handle_call({msg, Msg, FromPid}, _From, State) ->
             {reply, {error, pid_not_found}, State};
         {ok, #user_info{user_name = FromName}} ->
             M = <<"[",FromName/binary,"] ",Msg/binary>>,
-            maps:fold( % TODO foreach
-                fun
-                    (_, #user_info{pid = P}, Acc) when P =:= FromPid ->
-                        Acc;
-                    (_, #user_info{pid = P}, Acc) ->
-                        ph_handler_3_budget_chat:msg(P, M),
-                        Acc
-                end,
-                undefined,
-                State#state.users_by_pid
-            ),
+            uinfo_bcast_except(M, FromPid, State),
             {reply, ok, State}
     end;
 
@@ -103,10 +101,12 @@ uinfo_remove_by_pid(State, Pid) ->
     case maps:take(Pid, State#state.users_by_pid) of
         {#user_info{user_name = N, monitor_ref = Mr}, NewByPid} ->
             erlang:demonitor(Mr, [flush]),
-            State#state{
+            NewState = State#state{
                 users_by_name = maps:remove(N, State#state.users_by_name),
                 users_by_pid = NewByPid
-            };
+            },
+            uinfo_bcast_except(<<"* ",N/binary," has left the room">>, undefined, NewState),
+            NewState;
         error ->
             State
     end.
@@ -132,8 +132,55 @@ uinfo_new_user(UserName, Pid, State) ->
                         users_by_name = ByName#{UserName => Ui},
                         users_by_pid = ByPid#{Pid => Ui}
                     },
-                    ph_handler_3_budget_chat:msg(Pid, <<"* Hello ",UserName/binary>>),
+                    %% greet user
+                    %ph_handler_3_budget_chat:msg(Pid, <<"* Hello ",UserName/binary>>),
+
+                    % send list of all other users
+                    Users = iolist_to_binary(lists:join($,, maps:keys(State#state.users_by_name))),
+                    ph_handler_3_budget_chat:msg(Pid, <<"* Users online: ",Users/binary>>),
+
+                    % notify other users
+                    uinfo_bcast_except(<<"* User ",UserName/binary," joined">>, Pid, NewState),
                     {ok, NewState}
             end
     end.
+
+
+uinfo_bcast_except(Msg, SkipPid, State) ->
+    maps:foreach(
+        fun
+            (_, #user_info{pid = P}) when P =:= SkipPid ->
+                ok;
+            (_, #user_info{pid = P}) ->
+                ph_handler_3_budget_chat:msg(P, Msg)
+        end,
+        State#state.users_by_pid
+    ).
+
+
+username_valid(N) ->
+    PtKey = ph_chat_srv_re,
+    Re = case persistent_term:get(PtKey, undefined) of
+        undefined ->
+            {ok, Mp} = re:compile(<<"^[[:alnum:]]+$">>),
+            persistent_term:put(PtKey, Mp),
+            Mp;
+        Mp ->
+            Mp
+    end,
+    case re:run(N, Re) of
+        {match, _} -> true;
+        nomatch -> false
+    end.
+
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+
+username_valid_test() ->
+    ?assertNot(username_valid(<<>>)),
+    ?assertNot(username_valid(<<" ">>)),
+    ?assert(username_valid(<<"qwe">>)).
+
+-endif.
 

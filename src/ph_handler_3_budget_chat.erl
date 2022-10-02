@@ -4,6 +4,8 @@
 
 -export([
     msg/2,
+    disconnect/1,
+
     handle_connect/2,
     handle_data/3,
     handle_cast/3
@@ -16,6 +18,10 @@
 
 msg(Pid, Msg) ->
     gen_server:cast(Pid, {msg, Msg}).
+
+
+disconnect(Pid) ->
+    gen_server:cast(Pid, disconnect).
 
 
 handle_connect(S, Hs) ->
@@ -37,6 +43,10 @@ handle_data(_S, Line, HState) ->
 handle_cast(S, {msg, Msg}, Hs) ->
     ok = gen_tcp:send(S, [Msg, $\n]),
     Hs;
+
+handle_cast(_S, disconnect, _Hs) ->
+    ?LOG_ERROR("CHAT_HANDLER: disconnecting: self=~p", [self()]),
+    stop;
 
 handle_cast(S, Msg, Hs) ->
     ?LOG_ERROR("CHAT_HANDLER: unknown cast: socket=~p msg=~p hstate=~p", [S, Msg, Hs]),
