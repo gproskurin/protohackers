@@ -30,7 +30,7 @@ handle_data(S, <<"Q",Ts1:4/big-signed-integer-unit:8,Ts2:4/big-signed-integer-un
     ?LOG_NOTICE("Q ~p ~p", [Ts1,Ts2]),
     R = query(HState#hstate.data, Ts1, Ts2),
     ?LOG_NOTICE(" -> ~p", [R]),
-    gen_tcp:send(S, <<R:4/big-signed-integer-unit:8>>),
+    ok = socket:send(S, <<R:4/big-signed-integer-unit:8>>),
     handle_data(S, Rest, HState);
 
 handle_data(_S, Data, _HState) ->

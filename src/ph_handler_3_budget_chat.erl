@@ -3,6 +3,8 @@
 -include_lib("kernel/include/logger.hrl").
 
 -export([
+    get_children/1,
+
     msg/2,
     disconnect/1,
 
@@ -14,6 +16,14 @@
 -record(hstate, {
     user = undefined
 }).
+
+
+get_children(Children) ->
+    ChatSrv = #{
+        id => '3_chat_srv',
+        start => {ph_3_chat_srv, start_link, []}
+    },
+    [ChatSrv | Children].
 
 
 msg(Pid, Msg) ->
@@ -41,7 +51,7 @@ handle_data(_S, Line, HState) ->
 
 
 handle_cast(S, {msg, Msg}, Hs) ->
-    ok = gen_tcp:send(S, [Msg, $\n]),
+    ok = socket:send(S, [Msg, $\n]),
     Hs;
 
 handle_cast(_S, disconnect, _Hs) ->

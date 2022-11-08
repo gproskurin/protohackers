@@ -4,85 +4,68 @@
 
 -include_lib("kernel/include/logger.hrl").
 
+-include("include/ph.hrl").
+
 -export([
-    start_link/0,
+    start_link/1,
 
     init/1,
     handle_info/2
 ]).
 
+
 -record(state, {
-    socket_info = []
+    service_info,
+    listen_socket
 }).
 
--define(ACCEPT_POLL_INTERVAL, 300).
 
--define(HANDLERS_INFO, [
-    #{
-        port => 50000,
-        module => ph_handler_0_tcp_echo,
-        options => []
+start_link(Si) ->
+    gen_server:start_link(?MODULE, Si, []).
+
+
+init(#ph_service_info{port = Port} = Si) ->
+    {ok, ListenSocket} = socket:open(inet, stream, tcp),
+    ok = socket:setopt(ListenSocket, {socket, reuseaddr}, true),
+    ok = socket:setopt(ListenSocket, {socket, reuseport}, true),
+    ok = socket:bind(ListenSocket, #{family => inet, port => Port}),
+    ok = socket:listen(ListenSocket, 1024),
+    State = #state{
+        service_info = Si,
+        listen_socket = ListenSocket
     },
-    #{
-        port => 50001,
-        module => ph_handler_1_prime_time,
-        options => [{readline, true}]
-    },
-    #{
-        port => 50002,
-        module => ph_handler_2_means_to_an_end,
-        options => []
-    },
-    #{
-        port => 50003,
-        module => ph_handler_3_budget_chat,
-        options => [{readline, true}]
-    }
-]).
+    ?LOG_NOTICE("ACCEPTOR: init done: state=~p", [State]),
+    self() ! accept_once,
+    {ok, State}.
 
 
-start_link() ->
-    gen_server:start_link(?MODULE, [], []).
-
-
-init(_) ->
-    Sh = lists:map(
-        fun (H) ->
-            Mod = maps:get(module, H),
-            code:load_file(Mod),
-            {ok, S} = gen_tcp:listen(maps:get(port, H), [binary, {reuseaddr,true}, {active,false}]),
-            {S, H}
-        end,
-        ?HANDLERS_INFO
-    ),
-    self() ! accept,
-    {ok, #state{socket_info = Sh}}.
-
-
-handle_info(accept, State) ->
-    lists:foreach(
-        fun ({S, Hinfo}) ->
-            case gen_tcp:accept(S, ?ACCEPT_POLL_INTERVAL) of
-                {ok, Sa} ->
-                    ok = start_worker(Sa, Hinfo);
-                {error, timeout} ->
-                    ok
-            end
-        end,
-        State#state.socket_info
-    ),
-    self() ! accept,
+handle_info(accept_once, State) ->
+    accept_once(State),
     {noreply, State};
 
-handle_info(Data, State) ->
-    ?LOG_NOTICE("acceptor INFO: data=~p state=~p", [Data, State]),
+handle_info({'$socket', _S, select, _SelectInfo}, State) ->
+    accept_once(State),
+    {noreply, State};
+
+handle_info(Info, State) ->
+    ?LOG_NOTICE("acceptor INFO: info=~p state=~p", [Info, State]),
     {noreply, State}.
 
 
-start_worker(S, Hinfo) ->
-    ?LOG_NOTICE("acceptor - STARTING_WORKER: socket=~p handler_info=~p", [S, Hinfo]),
-    {ok, Wpid} = ph_workers_sup:start_worker(S, Hinfo),
-    ok = gen_tcp:controlling_process(S, Wpid),
-    Wpid ! start_recv,
+accept_once(State) ->
+    case socket:accept(State#state.listen_socket, nowait) of
+        {ok, S} ->
+            ok = start_worker(S, State#state.service_info),
+            self() ! accept_once;
+        {select, _} ->
+            ok
+    end.
+
+
+start_worker(Socket, #ph_service_info{workers_sup = WorkersSup} = Si) ->
+    ?LOG_NOTICE("acceptor - STARTING_WORKER: socket=~p ph_service_info=~p", [Socket, Si]),
+    {ok, Wpid} = ph_workers_sup:start_worker(WorkersSup, Socket, Si),
+    ok = socket:setopt(Socket, {otp, controlling_process}, Wpid),
+    Wpid ! start,
     ok.
 

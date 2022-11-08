@@ -26,7 +26,7 @@ process(S, Line) ->
             ErrMsg
     end,
     RespData = [jiffy:encode(Resp), $\n],
-    ok = gen_tcp:send(S, RespData).
+    ok = socket:send(S, RespData).
 
 
 is_prime(N) when is_float(N) ->

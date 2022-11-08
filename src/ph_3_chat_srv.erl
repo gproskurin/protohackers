@@ -93,7 +93,7 @@ handle_info({'DOWN', _Mref, process, Pid, Info}, State) ->
     {noreply, uinfo_remove_by_pid(State, Pid)};
 
 handle_info(Data, State) ->
-    ?LOG_NOTICE("CHAT_SRV: info: data=~p", [Data]),
+    ?LOG_ERROR("CHAT_SRV: info: data=~p", [Data]),
     {noreply, State}.
 
 
