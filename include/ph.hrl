@@ -3,6 +3,7 @@
 
 
 -record(ph_service_info, {
+    proto :: tcp | udp,
     port,
     module,
     workers_sup,

@@ -16,7 +16,8 @@
     test_1_prime_time/1,
     test_2_means_to_an_end/1,
     test_3_chat/1,
-    test_3_chat_user_cleanup/1
+    test_3_chat_user_cleanup/1,
+    test_4_unusual_database/1
 ]).
 
 
@@ -30,7 +31,8 @@ groups() -> [
         {group, group_0_tcp_echo},
         {group, group_1_prime_time},
         {group, group_2_means_to_an_end},
-        {group, group_3_chat}
+        {group, group_3_chat},
+        {group, group_4_unusual_database}
     ]},
     {group_0_tcp_echo, [], [
         test_0_tcp_echo
@@ -44,6 +46,9 @@ groups() -> [
     {group_3_chat, [], [
         test_3_chat,
         test_3_chat_user_cleanup
+    ]},
+    {group_4_unusual_database, [], [
+        test_4_unusual_database
     ]}
 ].
 
@@ -113,6 +118,9 @@ test_3_chat_user_cleanup(_Config) ->
     Session(),
     ok.
 
+
+test_4_unusual_database(_Config) ->
+    ok.
 
 %%%
 

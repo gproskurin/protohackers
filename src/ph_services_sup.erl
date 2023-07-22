@@ -17,6 +17,7 @@ init(_) ->
         mk_child_spec(
             '0_tcp_echo', 
             #ph_service_info{
+                proto = tcp,
                 port = 50000,
                 module = ph_handler_0_tcp_echo,
                 workers_sup = ph_workers_sup_0,
@@ -26,6 +27,7 @@ init(_) ->
         mk_child_spec(
             '1_prime_time', 
             #ph_service_info{
+                proto = tcp,
                 port = 50001,
                 module = ph_handler_1_prime_time,
                 workers_sup = ph_workers_sup_1,
@@ -35,6 +37,7 @@ init(_) ->
         mk_child_spec(
             '2_means_to_an_end', 
             #ph_service_info{
+                proto = tcp,
                 port = 50002,
                 module = ph_handler_2_means_to_an_end,
                 workers_sup = ph_workers_sup_2,
@@ -44,10 +47,21 @@ init(_) ->
         mk_child_spec(
             '3_budget_chat',
             #ph_service_info{
+                proto = tcp,
                 port = 50003,
                 module = ph_handler_3_budget_chat,
                 workers_sup = ph_workers_sup_3,
                 options = [{readline, true}]
+            }
+        ),
+        mk_child_spec(
+            '4_unusual_database',
+            #ph_service_info{
+                proto = udp,
+                port = 50004,
+                module = ph_handler_4_unusual_database,
+                workers_sup = ph_workers_sup_4,
+                options = []
             }
         )
     ],

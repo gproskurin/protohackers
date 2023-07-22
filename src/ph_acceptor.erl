@@ -24,12 +24,18 @@ start_link(Si) ->
     gen_server:start_link(?MODULE, Si, []).
 
 
-init(#ph_service_info{port = Port} = Si) ->
-    {ok, ListenSocket} = socket:open(inet, stream, tcp),
+init(#ph_service_info{port = Port, proto = Proto} = Si) ->
+    {ok, ListenSocket} = case Proto of
+        tcp -> socket:open(inet, stream, tcp);
+        udp -> socket:open(inet, dgram, udp)
+    end,
     ok = socket:setopt(ListenSocket, {socket, reuseaddr}, true),
     ok = socket:setopt(ListenSocket, {socket, reuseport}, true),
     ok = socket:bind(ListenSocket, #{family => inet, port => Port}),
-    ok = socket:listen(ListenSocket, 1024),
+    case Proto of
+        tcp -> ok = socket:listen(ListenSocket, 1024);
+        udp -> ok
+    end,
     State = #state{
         service_info = Si,
         listen_socket = ListenSocket
@@ -52,13 +58,23 @@ handle_info(Info, State) ->
     {noreply, State}.
 
 
-accept_once(State) ->
-    case socket:accept(State#state.listen_socket, nowait) of
-        {ok, S} ->
-            ok = start_worker(S, State#state.service_info),
-            self() ! accept_once;
-        {select, _} ->
-            ok
+accept_once(#state{listen_socket = ListenSocket, service_info = #ph_service_info{proto = Proto} = Si}) ->
+    case Proto of
+        tcp ->
+            case socket:accept(ListenSocket, nowait) of
+                {ok, S} ->
+                    ok = start_worker(S, Si),
+                    self() ! accept_once;
+                {select, _} ->
+                    ok
+            end;
+        udp ->
+            case socket:recvfrom(ListenSocket, [], nowait) of
+                {ok, {Source, Data}} ->
+                    self() ! accept_once;
+                {select, _} ->
+                    ok
+            end
     end.
 
 
