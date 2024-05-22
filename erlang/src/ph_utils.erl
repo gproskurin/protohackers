@@ -1,7 +1,9 @@
 -module(ph_utils).
 
 -export([
-    split_newline/1
+    split_newline/1,
+    json_encode/1,
+    json_decode/1
 ]).
 
 
@@ -20,6 +22,14 @@ split_by(Str, Pattern) ->
     end.
 
 
+json_encode(D) ->
+    json:encode(D).
+
+
+json_decode(J) ->
+    json:decode(J).
+
+
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
@@ -33,6 +43,13 @@ split_newline_test() ->
         {<<"qwer">>, <<"asdf\n">>},
         split_newline(<<"qwer\nasdf\n">>)
     ).
+
+
+json_test() ->
+    M = #{<<"qwe">> => 1, 2 => [<<"q">>, 2, #{<<"a">> => 1, b => 2}]},
+    J = json_encode(M),
+    M1 = json_decode(J),
+    ?assertEqual(M, M1).
 
 
 -endif.

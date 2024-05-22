@@ -13,7 +13,7 @@ handle_data(S, Line, HState) ->
 process(S, Line) ->
     ErrMsg = #{<<"prime">> => <<"error">>},
     Resp = try
-        J = jiffy:decode(Line, [return_maps]),
+        J = ph_utils:json_decode(Line),
         case J of
             #{<<"method">> := <<"isPrime">> = M, <<"number">> := N} when is_number(N) ->
                 ?LOG_NOTICE("NUM: ~p", [N]),
@@ -25,7 +25,7 @@ process(S, Line) ->
         error:{_Num,_Reason} ->
             ErrMsg
     end,
-    RespData = [jiffy:encode(Resp), $\n],
+    RespData = [ph_utils:json_encode(Resp), $\n],
     ok = socket:send(S, RespData).
 
 

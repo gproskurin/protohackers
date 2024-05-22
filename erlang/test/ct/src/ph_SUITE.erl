@@ -149,14 +149,14 @@ prime_client(Ppid) ->
     S = connect(50001),
 
     Send = fun(Map) ->
-        tcp_sendline(S, jiffy:encode(Map))
+        tcp_sendline(S, ph_utils:json_encode(Map))
     end,
 
     Send(#{<<"method">> => <<"isPrime">>, <<"number">> => 23}),
     {L1, <<>>} = tcp_readline(S, <<>>),
     ?assertMatch(
         #{<<"method">> := <<"isPrime">>, <<"prime">> := true},
-        jiffy:decode(L1, [return_maps])
+        ph_utils:json_decode(L1)
     ),
 
     timer:sleep(100), % keep a bunch of sockets connected
@@ -165,7 +165,7 @@ prime_client(Ppid) ->
     {L2, <<>>} = tcp_readline(S, <<>>),
     ?assertMatch(
         #{<<"prime">> := <<"error">>},
-        jiffy:decode(L2, [return_maps])
+        ph_utils:json_decode(L2)
     ),
 
     timer:sleep(100),
@@ -174,7 +174,7 @@ prime_client(Ppid) ->
     {L3, <<>>} = tcp_readline(S, <<>>),
     ?assertMatch(
         #{<<"method">> := <<"isPrime">>, <<"prime">> := false},
-        jiffy:decode(L3, [return_maps])
+        ph_utils:json_decode(L3)
     ),
 
     timer:sleep(100),
