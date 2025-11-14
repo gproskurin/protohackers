@@ -84,6 +84,12 @@ process_data(#state{service_info = #ph_service_info{module = Mod, options = Opts
     end.
 
 
+process_data_udp(#state{service_info = #ph_service_info{module = Mod, proto = udp}} = State, Peer) ->
+    #state{socket = S, buffer = Buffer, handler_state = Hs} = State,
+    {NewBuffer, NewHs} = Mod:handle_data({S,Peer}, Buffer, Hs),
+    State#state{buffer = NewBuffer, handler_state = NewHs}.
+
+
 process_readline(#state{buffer = Buffer} = State) ->
     case ph_utils:split_newline(Buffer) of
         {Line, Rest} ->
@@ -95,7 +101,19 @@ process_readline(#state{buffer = Buffer} = State) ->
     end.
 
 
-recv_once(State) ->
+recv_once(#state{service_info = #ph_service_info{proto = udp}} = State) ->
+    NewState = case socket:recvfrom(State#state.socket, [], nowait) of
+        {select, _SelectInfo} ->
+            State;
+        {select_read, {_SelectInfo, {Peer, Data}}} ->
+            process_data_udp(State#state{buffer = <<(State#state.buffer)/binary, Data/binary>>}, Peer);
+        {ok, {Peer, Data}} ->
+            self() ! recv_once,
+            process_data_udp(State#state{buffer = <<(State#state.buffer)/binary, Data/binary>>}, Peer)
+    end,
+    {noreply, NewState};
+
+recv_once(#state{service_info = #ph_service_info{proto = tcp}} = State) ->
     NewState = case socket:recv(State#state.socket, [], nowait) of
         {ok, Data} ->
             ?LOG_NOTICE("WORKER: recv->data self=~p", [self()]),

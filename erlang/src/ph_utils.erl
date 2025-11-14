@@ -2,6 +2,7 @@
 
 -export([
     split_newline/1,
+    split_binary_eq/1,
     json_encode/1,
     json_decode/1
 ]).
@@ -62,6 +63,15 @@ json_test() ->
     J = json_encode(M),
     M1 = json_decode(J),
     ?assertEqual(M, M1).
+
+
+split_binary_eq_test() ->
+    ?assertEqual({<<"key">>, <<"value">>}, split_binary_eq(<<"key=value">>)),
+    ?assertEqual({<<"key">>, <<"==value">>}, split_binary_eq(<<"key===value">>)),
+    ?assertEqual({<<"">>, <<"">>}, split_binary_eq(<<"=">>)),
+    ?assertEqual({<<"">>, <<"v">>}, split_binary_eq(<<"=v">>)),
+    ?assertEqual(<<"key">>, split_binary_eq(<<"key">>)),
+    ?assertEqual(<<>>, split_binary_eq(<<>>)).
 
 
 -endif.

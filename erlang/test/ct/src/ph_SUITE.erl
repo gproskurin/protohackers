@@ -108,6 +108,42 @@ test_3_chat_user_cleanup(_Config) ->
 
 
 test_4_unusual_database(_Config) ->
+    Timeout = 100,
+    Addr = {127,0,0,1},
+    Port = 50004,
+    {ok, S} = gen_udp:open(0, [binary, {active, false}]),
+    ok = gen_udp:connect(S, #{family => inet, addr => Addr, port => Port}),
+
+    lists:foreach(
+        fun({Req, ExpResp}) ->
+            ok = gen_udp:send(S, Req),
+            case ExpResp of
+                timeout ->
+                    ?assertEqual({error, timeout}, gen_udp:recv(S, 0, Timeout));
+                _ ->
+                    {ok, {Addr, Port, Resp}} = gen_udp:recv(S, 0, Timeout),
+                    ?assertEqual(ExpResp, Resp)
+            end
+        end,
+        [
+            {<<"version">>, <<"version=Unusual Database v1.0">>},
+            {<<"k1">>, timeout},
+            {<<"k1=v1">>, <<"k1=v1">>},
+            {<<"k1">>, <<"k1=v1">>},
+            {<<"k2">>, timeout},
+            {<<"k2==v2">>, <<"k2==v2">>}, % value starts with "="
+            {<<"k2">>, <<"k2==v2">>},
+            {<<"k1=v1">>, <<"k1=v1">>},
+            {<<"">>, timeout}, % key is empty string
+            {<<"=v">>, <<"=v">>},
+            {<<"">>, <<"=v">>},
+            {<<"e">>, timeout},
+            {<<"e=">>, <<"e=">>},
+            {<<"e">>, <<"e=">>},
+            {<<"version=new">>, timeout},
+            {<<"version">>, <<"version=Unusual Database v1.0">>}
+        ]
+    ),
     ok.
 
 %%%

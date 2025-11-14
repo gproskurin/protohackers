@@ -33,15 +33,18 @@ init(#ph_service_info{port = Port, proto = Proto} = Si) ->
     ok = socket:setopt(ListenSocket, {socket, reuseport}, true),
     ok = socket:bind(ListenSocket, #{family => inet, port => Port}),
     case Proto of
-        tcp -> ok = socket:listen(ListenSocket, 1024);
-        udp -> ok
+        tcp ->
+            ok = socket:listen(ListenSocket, 1024),
+            self() ! accept_once;
+        udp ->
+            % for udp, worker listens socket
+            ok = start_worker(ListenSocket, Si)
     end,
     State = #state{
         service_info = Si,
         listen_socket = ListenSocket
     },
     ?LOG_NOTICE("ACCEPTOR: init done: state=~p", [State]),
-    self() ! accept_once,
     {ok, State}.
 
 
@@ -58,23 +61,13 @@ handle_info(Info, State) ->
     {noreply, State}.
 
 
-accept_once(#state{listen_socket = ListenSocket, service_info = #ph_service_info{proto = Proto} = Si}) ->
-    case Proto of
-        tcp ->
-            case socket:accept(ListenSocket, nowait) of
-                {ok, S} ->
-                    ok = start_worker(S, Si),
-                    self() ! accept_once;
-                {select, _} ->
-                    ok
-            end;
-        udp ->
-            case socket:recvfrom(ListenSocket, [], nowait) of
-                {ok, {_Source, _Data}} ->
-                    self() ! accept_once;
-                {select, _} ->
-                    ok
-            end
+accept_once(#state{listen_socket = ListenSocket, service_info = #ph_service_info{proto = tcp} = Si}) ->
+    case socket:accept(ListenSocket, nowait) of
+        {ok, S} ->
+            ok = start_worker(S, Si),
+            self() ! accept_once;
+        {select, _} ->
+            ok
     end.
 
 
