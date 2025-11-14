@@ -70,7 +70,7 @@ accept_once(#state{listen_socket = ListenSocket, service_info = #ph_service_info
             end;
         udp ->
             case socket:recvfrom(ListenSocket, [], nowait) of
-                {ok, {Source, Data}} ->
+                {ok, {_Source, _Data}} ->
                     self() ! accept_once;
                 {select, _} ->
                     ok

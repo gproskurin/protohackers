@@ -22,12 +22,24 @@ split_by(Str, Pattern) ->
     end.
 
 
+split_binary_eq(Bin) ->
+    split_binary_eq(Bin, <<>>).
+
+
+split_binary_eq(<<"=",Value/binary>>, Key) ->
+    {Key, Value};
+split_binary_eq(<<X:8,Rest/binary>>, Key) ->
+    split_binary_eq(Rest, <<Key/binary, X:8>>);
+split_binary_eq(<<>>, Key) ->
+    Key.
+
+
 json_encode(D) ->
     json:encode(D).
 
 
 json_decode(J) ->
-    json:decode(J).
+    json:decode(erlang:iolist_to_binary(J)).
 
 
 -ifdef(TEST).
@@ -46,7 +58,7 @@ split_newline_test() ->
 
 
 json_test() ->
-    M = #{<<"qwe">> => 1, 2 => [<<"q">>, 2, #{<<"a">> => 1, b => 2}]},
+    M = #{<<"qwe">> => 1, <<"2">> => [<<"q">>, 2, #{<<"a">> => 1, <<"b">> => 2}]},
     J = json_encode(M),
     M1 = json_decode(J),
     ?assertEqual(M, M1).
