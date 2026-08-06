@@ -13,23 +13,23 @@ handle_data(S, Data, Map) ->
     case ph_utils:split_binary_eq(Data) of
         {?KEY_VERSION, _Value} ->
             % ignore attempts to set "version" key
-            {<<>>, Map};
+            Map;
         {Key, Value} ->
             % set
             NewMap = db_update(Key, Value, Map),
             udp_reply(S, [Key, $= | Value]), % improper list
-            {<<>>, NewMap};
+            NewMap;
         ?KEY_VERSION ->
             udp_reply(S, ?REPLY_VERSION),
-            {<<>>, Map};
+            Map;
         Key ->
             % get
             case db_find(Key, Map) of
                 {ok, Value} ->
                     udp_reply(S, [Key, $= | Value]),
-                    {<<>>, Map};
+                    Map;
                 error ->
-                    {<<>>, Map}
+                    Map
             end
     end.
 

@@ -12,8 +12,8 @@
 ]).
 
 
-start_link(#ph_service_info{workers_sup = WorkersSup}) ->
-    supervisor:start_link({local, WorkersSup}, ?MODULE, {}).
+start_link(#ph_service_info_tcp{workers_sup = WorkersSup}) ->
+    supervisor:start_link({local, WorkersSup}, ?MODULE, undefined).
 
 
 start_worker(WorkersSup, Socket, Hinfo) ->
@@ -23,8 +23,7 @@ start_worker(WorkersSup, Socket, Hinfo) ->
 init(_) ->
     ChildSpec = #{
         id => simple_id,
-        type => worker,
-        start => {ph_worker, start_link, []},
+        start => {ph_worker_tcp, start_link, []},
         restart => temporary
     },
     SupFlags = #{

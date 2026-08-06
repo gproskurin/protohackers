@@ -1,4 +1,4 @@
--module(ph_worker).
+-module(ph_worker_tcp).
 
 -behaviour(gen_server).
 
@@ -10,6 +10,7 @@
     start_link/2,
 
     init/1,
+    handle_call/3,
     handle_cast/2,
     handle_info/2
 ]).
@@ -21,7 +22,7 @@
     handler_state = undefined
 }).
 
-start_link(Socket, Si) ->
+start_link(Socket, #ph_service_info_tcp{} = Si) ->
     gen_server:start_link(?MODULE, {Socket, Si}, []).
 
 
@@ -30,11 +31,15 @@ init({Socket, Si}) ->
         socket = Socket,
         service_info = Si
     },
-    ?LOG_NOTICE("worker finish INIT: self=~p socket=~p service_info=~p", [self(), Socket, Si]),
+    ?LOG_NOTICE("WORKER_TCP finish init: self=~p socket=~p service_info=~p", [self(), Socket, Si]),
     {ok, State}.
 
 
-handle_cast(Msg, #state{socket = S, service_info = #ph_service_info{module = Mod}, handler_state = Hs} = State) ->
+handle_call(_Request, _From, State) ->
+    {noreply, State}.
+
+
+handle_cast(Msg, #state{socket = S, service_info = #ph_service_info_tcp{module = Mod}, handler_state = Hs} = State) ->
     case Mod:handle_cast(S, Msg, Hs) of
         stop ->
             {stop, normal, State};
@@ -61,7 +66,7 @@ handle_info(Info, State) ->
 
 %%
 
-process_connect(#state{service_info = #ph_service_info{module = Mod}} = State) ->
+process_connect(#state{service_info = #ph_service_info_tcp{module = Mod}} = State) ->
     case erlang:function_exported(Mod, handle_connect, 2) of
         true ->
             ?LOG_NOTICE("WORKER: self=~p process_connect -> handle", [self()]),
@@ -73,7 +78,7 @@ process_connect(#state{service_info = #ph_service_info{module = Mod}} = State) -
     end.
 
 
-process_data(#state{service_info = #ph_service_info{module = Mod, options = Opts}} = State) ->
+process_data(#state{service_info = #ph_service_info_tcp{module = Mod, options = Opts}} = State) ->
     case proplists:get_value(readline, Opts, false) of
         true ->
             process_readline(State);
@@ -84,16 +89,10 @@ process_data(#state{service_info = #ph_service_info{module = Mod, options = Opts
     end.
 
 
-process_data_udp(#state{service_info = #ph_service_info{module = Mod, proto = udp}} = State, Peer) ->
-    #state{socket = S, buffer = Buffer, handler_state = Hs} = State,
-    {NewBuffer, NewHs} = Mod:handle_data({S,Peer}, Buffer, Hs),
-    State#state{buffer = NewBuffer, handler_state = NewHs}.
-
-
 process_readline(#state{buffer = Buffer} = State) ->
     case ph_utils:split_newline(Buffer) of
         {Line, Rest} ->
-            #state{service_info = #ph_service_info{module = Mod}, socket = S, handler_state = Hs} = State,
+            #state{service_info = #ph_service_info_tcp{module = Mod}, socket = S, handler_state = Hs} = State,
             {<<>>, NewHs} = Mod:handle_data(S, Line, Hs),
             process_readline(State#state{buffer = Rest, handler_state = NewHs});
         nomatch ->
@@ -101,22 +100,10 @@ process_readline(#state{buffer = Buffer} = State) ->
     end.
 
 
-recv_once(#state{service_info = #ph_service_info{proto = udp}} = State) ->
-    NewState = case socket:recvfrom(State#state.socket, [], nowait) of
-        {select, _SelectInfo} ->
-            State;
-        {select_read, {_SelectInfo, {Peer, Data}}} ->
-            process_data_udp(State#state{buffer = <<(State#state.buffer)/binary, Data/binary>>}, Peer);
-        {ok, {Peer, Data}} ->
-            self() ! recv_once,
-            process_data_udp(State#state{buffer = <<(State#state.buffer)/binary, Data/binary>>}, Peer)
-    end,
-    {noreply, NewState};
-
-recv_once(#state{service_info = #ph_service_info{proto = tcp}} = State) ->
+recv_once(State) ->
     NewState = case socket:recv(State#state.socket, [], nowait) of
         {ok, Data} ->
-            ?LOG_NOTICE("WORKER: recv->data self=~p", [self()]),
+            ?LOG_NOTICE("WORKER_TCP: recv->data self=~p", [self()]),
             self() ! recv_once,
             process_data(State#state{buffer = <<(State#state.buffer)/binary, Data/binary>>});
         {select, {_SelectInfo, Data}} ->

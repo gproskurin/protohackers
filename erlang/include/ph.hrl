@@ -2,12 +2,16 @@
 -define(ph_hrl, 1).
 
 
--record(ph_service_info, {
-    proto :: tcp | udp,
+-record(ph_service_info_tcp, {
     port,
     module,
     workers_sup,
     options
+}).
+
+-record(ph_service_info_udp, {
+    port,
+    module
 }).
 
 

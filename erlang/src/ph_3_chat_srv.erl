@@ -17,6 +17,7 @@
 
     init/1,
     handle_call/3,
+    handle_cast/2,
     handle_info/2
 ]).
 
@@ -84,8 +85,13 @@ handle_call({msg, Msg, FromPid}, _From, State) ->
             {reply, ok, State}
     end;
 
-handle_call(Req, From, _State) ->
-    ?LOG_ERROR("CHAT_SRV: unknown call: request=~p from=~p", [Req, From]).
+handle_call(Req, From, State) ->
+    ?LOG_ERROR("CHAT_SRV: unknown call: request=~p from=~p state=~p", [Req, From, State]),
+    {noreply, State}.
+
+
+handle_cast(_Msg, State) ->
+    {noreply, State}.
 
 
 handle_info({'DOWN', _Mref, process, Pid, Info}, State) ->
