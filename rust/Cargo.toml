@@ -1,0 +1,15 @@
+[package]
+name = "protohackers"
+version = "0.1.0"
+edition = "2024"
+
+
+[features]
+
+
+[dependencies]
+mio = { version = "*", features = ["os-poll", "net"] }
+slab = "*"
+
+[dev-dependencies]
+
